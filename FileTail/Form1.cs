@@ -28,15 +28,21 @@ namespace FileTail
             InitializeComponent();
         }
 
+        ~Form1()
+        {
+        }
+
         private bool GetFile()
         {
-            OpenFileDialog openFileDialog1 = new OpenFileDialog();
+            OpenFileDialog openFileDialog1 = new OpenFileDialog
+            {
 
-            // Set filter options and filter index.
-            openFileDialog1.Filter = "All Files (*.*)|*.*";
-            openFileDialog1.FilterIndex = 1;
+                // Set filter options and filter index.
+                Filter = "All Files (*.*)|*.*",
+                FilterIndex = 1,
 
-            openFileDialog1.Multiselect = false;
+                Multiselect = false
+            };
 
             // Call the ShowDialog method to show the dialog box.
             DialogResult userClickedOK = openFileDialog1.ShowDialog();
@@ -49,8 +55,10 @@ namespace FileTail
 
                 reader = new StreamReader(new FileStream(filename,
                                                FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+                openFileDialog1.Dispose();
                 return true;
             }
+            openFileDialog1.Dispose();
             return false;
         }
 
@@ -107,7 +115,7 @@ namespace FileTail
             timer1.Start();
         }
 
-        private void timer1_Tick(object sender, EventArgs e)
+        private void Timer1_Tick(object sender, EventArgs e)
         {
             timer1.Stop();
             if (lastMaxOffset == 0)
@@ -124,7 +132,7 @@ namespace FileTail
                 reader.BaseStream.Seek(lastMaxOffset, SeekOrigin.Begin);
 
                 //read out of the file until the EOF
-                string line = "";
+                string line;
                 while ((line = reader.ReadLine()) != null)
                 {
                     try
@@ -136,6 +144,7 @@ namespace FileTail
                             richTextBox1.AppendText(line + "\n");
                             SoundPlayer player = new SoundPlayer(@"test.wav");
                             player.Play();
+                            player.Dispose();
 
                         }
                         else if ((!matched || matchedIgnore) && showAll)
@@ -152,11 +161,6 @@ namespace FileTail
                 lastMaxOffset = reader.BaseStream.Position;
             }
             timer1.Start();
-        }
-
-        private void PlaySound(string v)
-        {
-            throw new NotImplementedException();
         }
 
         void Help()
@@ -192,14 +196,17 @@ namespace FileTail
 
         private void GetWavFile()
         {
-            OpenFileDialog myDialog = new OpenFileDialog();
-            myDialog.DefaultExt = "wav";
+            OpenFileDialog myDialog = new OpenFileDialog
+            {
+                DefaultExt = "wav"
+            };
             DialogResult result = myDialog.ShowDialog(this);
             myDialog.CheckFileExists = true;
             if (result == DialogResult.OK)
             {
                 wavFile = myDialog.FileName;
             }
+            myDialog.Dispose();
             Properties.Settings.Default.WavFile = wavFile;
             Properties.Settings.Default.Save();
         }
@@ -275,9 +282,11 @@ namespace FileTail
         public static Boolean InputQuery(String caption, String prompt, ref String value)
         {
             Form form;
-            form = new Form();
-            form.AutoScaleMode = AutoScaleMode.Font;
-            form.Font = SystemFonts.IconTitleFont;
+            form = new Form
+            {
+                AutoScaleMode = AutoScaleMode.Font,
+                Font = SystemFonts.IconTitleFont
+            };
 
             SizeF dialogUnits;
             dialogUnits = form.AutoScaleDimensions;
@@ -294,39 +303,47 @@ namespace FileTail
             form.StartPosition = FormStartPosition.CenterScreen;
 
             System.Windows.Forms.Label lblPrompt;
-            lblPrompt = new System.Windows.Forms.Label();
-            lblPrompt.Parent = form;
-            lblPrompt.AutoSize = true;
-            lblPrompt.Left = MulDiv(8, (int)dialogUnits.Width, 4);
-            lblPrompt.Top = MulDiv(8, (int)dialogUnits.Height, 8);
-            lblPrompt.Text = prompt;
+            lblPrompt = new System.Windows.Forms.Label
+            {
+                Parent = form,
+                AutoSize = true,
+                Left = MulDiv(8, (int)dialogUnits.Width, 4),
+                Top = MulDiv(8, (int)dialogUnits.Height, 8),
+                Text = prompt
+            };
 
             System.Windows.Forms.TextBox edInput;
-            edInput = new System.Windows.Forms.TextBox();
-            edInput.Parent = form;
-            edInput.Left = lblPrompt.Left;
-            edInput.Top = MulDiv(19, (int)dialogUnits.Height, 8);
-            edInput.Width = MulDiv(164, (int)dialogUnits.Width, 4);
-            edInput.Text = value;
+            edInput = new TextBox
+            {
+                Parent = form,
+                Left = lblPrompt.Left,
+                Top = MulDiv(19, (int)dialogUnits.Height, 8),
+                Width = MulDiv(164, (int)dialogUnits.Width, 4),
+                Text = value
+            };
             edInput.SelectAll();
-
+            lblPrompt.Dispose();
 
             int buttonTop = MulDiv(41, (int)dialogUnits.Height, 8);
             //Command buttons should be 50x14 dlus
             //Size buttonSize = ScaleSize(new Size(50, 14), dialogUnits.Width / 4, dialogUnits.Height / 8);
 
-            System.Windows.Forms.Button bbOk = new System.Windows.Forms.Button();
-            bbOk.Parent = form;
-            bbOk.Text = "OK";
-            bbOk.DialogResult = DialogResult.OK;
+            System.Windows.Forms.Button bbOk = new System.Windows.Forms.Button
+            {
+                Parent = form,
+                Text = "OK",
+                DialogResult = DialogResult.OK
+            };
             form.AcceptButton = bbOk;
             bbOk.Location = new Point(MulDiv(38, (int)dialogUnits.Width, 4), buttonTop);
             //bbOk.Size = buttonSize;
 
-            System.Windows.Forms.Button bbCancel = new System.Windows.Forms.Button();
-            bbCancel.Parent = form;
-            bbCancel.Text = "Cancel";
-            bbCancel.DialogResult = DialogResult.Cancel;
+            System.Windows.Forms.Button bbCancel = new System.Windows.Forms.Button
+            {
+                Parent = form,
+                Text = "Cancel",
+                DialogResult = DialogResult.Cancel
+            };
             form.CancelButton = bbCancel;
             bbCancel.Location = new Point(MulDiv(92, (int)dialogUnits.Width, 4), buttonTop);
             //bbCancel.Size = buttonSize;
@@ -334,12 +351,11 @@ namespace FileTail
             if (form.ShowDialog() == DialogResult.OK)
             {
                 value = edInput.Text;
+                edInput.Dispose();
                 return true;
             }
-            else
-            {
-                return false;
-            }
+            edInput.Dispose();
+            return false;
         }
 
         /// <summary>

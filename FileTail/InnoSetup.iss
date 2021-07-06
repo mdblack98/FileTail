@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "FileTail"
-#define MyAppVersion "1.5"
+#define MyAppVersion "1.8"
 #define MyAppPublisher "W9MDB"
 #define MyAppURL "https://www.qrz.com/db/W9MDB"
 #define MyAppExeName "FileTail.exe"
@@ -21,8 +21,8 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={pf}\{#MyAppName}
 DisableProgramGroupPage=yes
-OutputDir=C:\Users\mike\Dropbox\Projects\FileTail\FileTail\bin
-OutputBaseFilename=FileTail1.5
+OutputDir=C:\Users\mdbla\Dropbox\Projects\FileTail\FileTail\bin
+OutputBaseFilename=FileTail1.8
 Compression=lzma
 SolidCompression=yes
 
@@ -34,8 +34,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 0,6.1
 
 [Files]
-Source: "C:\Users\mike\Dropbox\Projects\FileTail\FileTail\bin\Release\FileTail.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\mike\Dropbox\Projects\FileTail\FileTail\bin\Release\test.wav"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\mdbla\Dropbox\Projects\FileTail\FileTail\bin\Release\FileTail.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\mdbla\Dropbox\Projects\FileTail\FileTail\bin\Release\test.wav"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

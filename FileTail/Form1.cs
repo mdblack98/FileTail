@@ -10,6 +10,10 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Text.RegularExpressions;
 using System.Media;
+using SpeechLib;
+using System.Collections.Concurrent;
+using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace FileTail
 {
@@ -17,21 +21,61 @@ namespace FileTail
     public partial class Form1 : Form
     {
         public static String filename = "";
+        private string filenameLog;
+
+        public StreamWriter writerLog { get; private set; }
+
         StreamReader reader;
         long lastMaxOffset=0;
         string regex = "";
         string regexIgnore = "";
         bool showAll = true;
         string wavFile = "test.wav";
+        //string callsign = "W9MDB";
+        readonly Task taskSpeech = new Task(SpeechHandler);
+        static readonly ConcurrentBag<string> speechQueue = new ConcurrentBag<string>();
+        private const string Off = "Off";
+        private const string On = "On";
+        private string captureStatus = Off;
+        private string soundStatus = Off;
+
+        //FileSystemWatcher watcher;
+        public DateTime lastWriteTime { get; private set; }
+        QRZ.QRZ qrz;
+        int nlines = 0;
+        private string qrzlogin;
+        private string qrzpassword;
+
         public Form1()
         {
             InitializeComponent();
+            taskSpeech.Start();
+            qrzlogin = Properties.Settings.Default.QRZLogin;
+            qrzpassword = Properties.Settings.Default.QRZPassword;
+            if (qrzlogin == null || qrzlogin.Length == 0)
+                GetQRZLogin();
+            qrz = new QRZ.QRZ(Properties.Settings.Default.QRZLogin, Properties.Settings.Default.QRZPassword, "cache.txt");
+
         }
 
         ~Form1()
         {
         }
 
+        static void SpeechHandler()
+        {
+            var speak = new SpeechLib.Synthesis.SpeechSynthesis();
+            while (true)
+            {
+                while (speechQueue.TryTake(out string result))
+                {
+                    result = result.Replace("-", " minus ");
+                    speak.SpeechSynthesisEngine.Speak(result);
+                }
+                Thread.Sleep(500);
+            }
+            //speak.Dispose();
+        }
         private bool GetFile()
         {
             OpenFileDialog openFileDialog1 = new OpenFileDialog
@@ -56,13 +100,68 @@ namespace FileTail
                 reader = new StreamReader(new FileStream(filename,
                                                FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
                 openFileDialog1.Dispose();
+                //watcher = new FileSystemWatcher(filename);
+                //watcher.Changed += Timer1_Tick;
+                //watcher.EnableRaisingEvents = true;
                 return true;
             }
             openFileDialog1.Dispose();
             return false;
         }
 
-    
+        private bool GetFileLog()
+        {
+            try
+            {
+                OpenFileDialog openFileDialog1 = new OpenFileDialog
+                {
+
+                    // Set filter options and filter index.
+                    Filter = "All Files (*.*)|*.*",
+                    FilterIndex = 1,
+                    Multiselect = false,
+                    CheckFileExists = false
+                };
+                openFileDialog1.CheckFileExists = false;
+                // Call the ShowDialog method to show the dialog box.
+                DialogResult userClickedOK = openFileDialog1.ShowDialog();
+
+                // Process input if the user clicked OK.
+                if (userClickedOK.Equals(DialogResult.OK))
+                {
+                    // Open the selected file to read.
+                    filenameLog = openFileDialog1.InitialDirectory + openFileDialog1.FileName;
+
+                    writerLog = new StreamWriter(new FileStream(filenameLog,
+                                                   FileMode.Create, FileAccess.Write, FileShare.ReadWrite));
+                    openFileDialog1.Dispose();
+                    captureStatus = filenameLog;
+                    //watcher = new FileSystemWatcher(filename);
+                    //watcher.Changed += Timer1_Tick;
+                    //watcher.EnableRaisingEvents = true;
+                    return true;
+                }
+                else
+                {
+                    filenameLog = "";
+                    richTextBox1.AppendText("Log file canceled\n");
+                    if (writerLog != null)
+                    {
+                        writerLog.Close();
+                        writerLog.Dispose();
+                        writerLog = null;
+                        captureStatus = Off;
+                    }
+                }
+                openFileDialog1.Dispose();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+            }
+            return false;
+        }
+
         private void Form1_Load(object sender, EventArgs e)
         {
             regex = Properties.Settings.Default.RegEx;
@@ -110,64 +209,137 @@ namespace FileTail
                 reader = new StreamReader(new FileStream(filename,
                                                FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
             }
+            filenameLog = Properties.Settings.Default.FilenameLog;
+            if (filenameLog.Length != 0)
+            {
+                writerLog = new StreamWriter(new FileStream(filenameLog, FileMode.Append, FileAccess.Write));
+                captureStatus = filenameLog;
+            }
             Help();
             timer1.Interval = 1000;
             timer1.Start();
         }
 
+        void Speak(string text)
+        {
+            var speak = new SpeechLib.Synthesis.SpeechSynthesis();
+            speak.Speak(text);
+            speak.Dispose();
+        }
+
         private void Timer1_Tick(object sender, EventArgs e)
         {
-            timer1.Stop();
-            if (lastMaxOffset == 0)
+            string line = "No line yet";
+            try
             {
-                reader.ReadToEnd();
-                lastMaxOffset = reader.BaseStream.Position;
-                timer1.Start();
-                return;
-            }
-            //if the file size has changed, update our window
-            if (reader.BaseStream.Length != lastMaxOffset)
-            {
-                //seek to the last max offset
-                reader.BaseStream.Seek(lastMaxOffset, SeekOrigin.Begin);
-
-                //read out of the file until the EOF
-                string line;
-                while ((line = reader.ReadLine()) != null)
+                timer1.Stop();
+                if (lastMaxOffset == 0)
                 {
-                    try
+                    reader.ReadToEnd();
+                    lastMaxOffset = reader.BaseStream.Position;
+                    timer1.Start();
+                    return;
+                }
+                //richTextBox1.AppendText("Loop " + richTextBox1.Lines.Count() + "\n");
+                //if the file size has changed, update our window
+                if (File.GetLastWriteTime(filename) != lastWriteTime)
+                {
+                    lastWriteTime = File.GetLastWriteTime(filename);
+                    if (reader.BaseStream.Length != lastMaxOffset)
                     {
-                        bool matched = regex.Length > 0 && Regex.IsMatch(line, regex);
-                        bool matchedIgnore = regexIgnore.Length > 0 && Regex.IsMatch(line, regexIgnore);
-                        if (matched && !matchedIgnore)
-                        {
-                            richTextBox1.AppendText(line + "\n");
-                            SoundPlayer player = new SoundPlayer(@"test.wav");
-                            player.Play();
-                            player.Dispose();
+                        //seek to the last max offset
+                        reader.BaseStream.Seek(lastMaxOffset, SeekOrigin.Begin);
 
-                        }
-                        else if ((!matched || matchedIgnore) && showAll)
+                        //read out of the file until the EOF
+                        while ((line = reader.ReadLine()) != null)
                         {
-                            richTextBox1.AppendText(line + "\n");
+                            nlines++;
+                            try
+                            {
+                                var allText = new AllText();
+                                var callsign = allText.Callsign(line);
+                                if (callsign != null && qrz != null)
+                                {
+                                    var result = qrz.GetCallsign(callsign, out bool cached);
+                                    if (result)
+                                    {
+                                        if (qrz.dxcc == 291)
+                                        {
+                                            if (cached)
+                                            {
+                                                line = "<" + qrz.license + "!> " + line;
+                                            }
+                                            else
+                                            {
+                                                line = "<" + qrz.license + " > " + line;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            if (cached)
+                                            {
+                                                line = "<?!> " + line;
+                                            }
+                                            else
+                                            {
+                                                line = "<? > " + line;
+                                            }
+                                        }
+                                    }
+                                }
+                                bool matched = regex.Length > 0 && Regex.IsMatch(line, regex);
+                                bool matchedIgnore = regexIgnore.Length > 0 && Regex.IsMatch(line, regexIgnore);
+                                if (matched && !matchedIgnore)
+                                {
+                                    if (writerLog != null)
+                                    {
+                                        writerLog.WriteLine(line);
+                                        writerLog.Flush();
+                                    }
+                                    richTextBox1.AppendText(line + "\n");
+                                    if (soundStatus.Equals(On))
+                                    {
+                                        SoundPlayer player = new SoundPlayer(wavFile);
+                                        player.Play();
+                                        player.Dispose();
+                                    }
+
+                                }
+                                else if (showAll)
+                                {
+                                    if (writerLog != null)
+                                    {
+                                        writerLog.WriteLine(line);
+                                        writerLog.Flush();
+                                    }
+                                    richTextBox1.AppendText(line + "\n");
+                                }
+                                Application.DoEvents();
+                            }
+                            catch (Exception ex)
+                            {
+                                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+                            }
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show(ex.Message);
+                        //update the last max offset
+                        lastMaxOffset = reader.BaseStream.Position;
                     }
                 }
-                //update the last max offset
-                lastMaxOffset = reader.BaseStream.Position;
+                timer1.Start();
             }
-            timer1.Start();
+            catch (Exception ex)
+            {
+                MessageBox.Show(line + "\n" + ex.Message + "\n" + ex.StackTrace);
+            }
         }
 
         void Help()
         {
             string f5 = "On";
-            if (!showAll) f5 = "Off";
-            richTextBox1.AppendText("F1-Help,  F2-FileOpen, F3-Clear, F4=RegEx, F5-Showall("+f5+"), F6-WavFile\n");
+            if (!showAll) f5 = Off;
+            richTextBox1.AppendText("By W9MDB in the public domain for ARRL Volunteer Monitoring use\n");
+            richTextBox1.AppendText("F1-Help,  F2-FileOpen, F3-Clear, F4=RegEx, F5-Showall is " + f5 + "\nF6-WavFile, F7-QRZ Login, F8-Capture File=" + captureStatus +"\n");
+            richTextBox1.AppendText("F11-Sound="+soundStatus+", F12-Witnessed\n");
             richTextBox1.AppendText("Watching " + filename);
             if (regex.Length>0)
             {
@@ -188,11 +360,25 @@ namespace FileTail
             Properties.Settings.Default.RegEx = response;
             Properties.Settings.Default.Save();
             response = regexIgnore;
-            InputQuery("RegEx Expressio ignore", "Enter expression to ignore", ref response);
+            InputQuery("RegEx Expression ignore", "Enter expression to ignore", ref response);
             regexIgnore = response;
             Properties.Settings.Default.RegExIgnore = response;
             Properties.Settings.Default.Save();
         }
+        private void GetQRZLogin()
+        {
+            string response = qrzlogin;
+            InputQuery("QRZ Login Name", "Enter qrz login name", ref response);
+            qrzlogin = response;
+            Properties.Settings.Default.QRZLogin = response;
+            Properties.Settings.Default.Save();
+            response = qrzpassword;
+            InputQuery("QRZ Password", "Enter qrz password", ref response);
+            qrzpassword = response;
+            Properties.Settings.Default.QRZPassword = response;
+            Properties.Settings.Default.Save();
+        }
+
 
         private void GetWavFile()
         {
@@ -250,6 +436,34 @@ namespace FileTail
                 case Keys.F6:
                     GetWavFile();
                     break;
+                case Keys.F7:
+                    GetQRZLogin();
+                    break;
+                case Keys.F8:
+                    if (!captureStatus.Equals(Off))
+                    {
+                        captureStatus = Off;
+                        filenameLog = "";
+                    }
+                    else
+                    {
+                        GetFileLog();
+                    }
+                    Help();
+                    //Speak("W9MDB");
+                    break;
+                case Keys.F11:
+                    soundStatus = soundStatus.Equals(Off) ? On : Off;
+                    Help();
+                    break;
+                case Keys.F12:
+                    richTextBox1.SelectionStart = richTextBox1.TextLength-1;
+                    richTextBox1.SelectionLength = 1;
+                    richTextBox1.SelectedText = " WITNESSED" + "\n";
+                    writerLog.BaseStream.Seek(-2, SeekOrigin.End);
+                    writerLog.WriteLine(" WITNESSED");
+                    writerLog.Flush();
+                    break;
             }
         }
 
@@ -277,6 +491,9 @@ namespace FileTail
                 Properties.Settings.Default.Minimized = true;
             }
             Properties.Settings.Default.Filename = filename;
+            Properties.Settings.Default.QRZLogin = qrzlogin;
+            Properties.Settings.Default.QRZPassword = qrzpassword;
+            Properties.Settings.Default.FilenameLog = filenameLog;
             Properties.Settings.Default.Save();
         }
         public static Boolean InputQuery(String caption, String prompt, ref String value)
@@ -365,6 +582,37 @@ namespace FileTail
         public static int MulDiv(int nNumber, int nNumerator, int nDenominator)
         {
             return (int)Math.Round((float)nNumber * nNumerator / nDenominator);
+        }
+
+        private void timer2_Tick(object sender, EventArgs e)
+        {
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int SendMessage(IntPtr hWnd, int wMsg, IntPtr wParam, IntPtr lParam);
+        private const int WM_VSCROLL = 277;
+        private const int SB_PAGEBOTTOM = 7;
+
+        public static void ScrollToBottom(RichTextBox MyRichTextBox)
+        {
+            SendMessage(MyRichTextBox.Handle, WM_VSCROLL, (IntPtr)SB_PAGEBOTTOM, IntPtr.Zero);
+        }
+        private void richTextBox1_TextChanged(object sender, EventArgs e)
+        {
+            int maxLines = 500;
+            int trimToLines = 400;
+            if (richTextBox1.Lines.Count() > maxLines)
+            {
+                richTextBox1.Lines = richTextBox1.Lines.Skip(richTextBox1.Lines.Length - trimToLines).ToArray();
+            }
+            ScrollToBottom(richTextBox1);
+            //richTextBox1.SelectionStart = richTextBox1.Lines.Count();
+            //richTextBox1.SelectionLength = 1;
+            //richTextBox1.ScrollToCaret();
+        }
+
+        private void Form1_TextChanged(object sender, EventArgs e)
+        {
         }
     }
 }

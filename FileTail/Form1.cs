@@ -260,6 +260,7 @@ namespace FileTail
                         while ((line = reader.ReadLine()) != null)
                         {
                             if (pause) continue;
+                            if (line.Contains("handle_") || line.Contains("Decod") || line.Contains("Lost") || line.Contains("his")) continue;
                             //nlines++;
                             try
                             {

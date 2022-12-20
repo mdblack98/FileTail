@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "FileTail"
-#define MyAppVersion "1.8"
+#define MyAppVersion "1.8.7"
 #define MyAppPublisher "W9MDB"
 #define MyAppURL "https://www.qrz.com/db/W9MDB"
 #define MyAppExeName "FileTail.exe"
@@ -19,10 +19,10 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={pf}\{#MyAppName}
+DefaultDirName={commonpf}\{#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=C:\Users\mdbla\Dropbox\Projects\FileTail\FileTail\bin
-OutputBaseFilename=FileTail1.8
+OutputBaseFilename={#MyAppName}{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 
@@ -41,7 +41,6 @@ Source: "C:\Users\mdbla\Dropbox\Projects\FileTail\FileTail\bin\Release\test.wav"
 [Icons]
 Name: "{commonprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
-Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: quicklaunchicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

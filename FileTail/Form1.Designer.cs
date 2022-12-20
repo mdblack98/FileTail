@@ -48,7 +48,7 @@
             this.richTextBox1.TabIndex = 0;
             this.richTextBox1.Text = "";
             this.richTextBox1.WordWrap = false;
-            this.richTextBox1.TextChanged += new System.EventHandler(this.richTextBox1_TextChanged);
+            this.richTextBox1.TextChanged += new System.EventHandler(this.RichTextBox1_TextChanged);
             this.richTextBox1.PreviewKeyDown += new System.Windows.Forms.PreviewKeyDownEventHandler(this.OnPreviewKeyDown);
             // 
             // timer1
@@ -59,7 +59,7 @@
             // 
             this.timer2.Enabled = true;
             this.timer2.Interval = 500;
-            this.timer2.Tick += new System.EventHandler(this.timer2_Tick);
+            this.timer2.Tick += new System.EventHandler(this.Timer2_Tick);
             // 
             // Form1
             // 
@@ -69,7 +69,7 @@
             this.Controls.Add(this.richTextBox1);
             this.KeyPreview = true;
             this.Name = "Form1";
-            this.Text = "FileTail V1.8.2 by W9MDB";
+            this.Text = "FileTail V1.8.7 by W9MDB";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
             this.Load += new System.EventHandler(this.Form1_Load);
             this.TextChanged += new System.EventHandler(this.Form1_TextChanged);

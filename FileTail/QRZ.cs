@@ -1,5 +1,4 @@
-﻿using FileTail;
-using System;
+﻿using System;
 using System.CodeDom.Compiler;
 using System.Collections.Concurrent;
 using System.Data;
@@ -13,7 +12,7 @@ using System.Windows.Forms;
 //using System.Text.Json;
 //using System.Web.Script.Serialization;
 
-namespace QRZ
+namespace FileTail
 {
     class QRZ : IDisposable
     {
@@ -120,6 +119,11 @@ namespace QRZ
                     if (tokens[1].Length > tokens[0].Length) callSignSplit = tokens[1];
                     else callSignSplit = tokens[0];
                 }
+                if (xmlSession == "") 
+                {
+                    MessageBox.Show("QRZ session error"); 
+                    return false;
+                }
                 string myurl = server + "?s=" + xmlSession;
                 if (debug) File.AppendAllText(qrzlog, DateTime.Now.ToShortTimeString() + " " + myurl + "\n");
                 //if (cacheQRZ.TryGetValue(callSign, out string validCall))
@@ -179,7 +183,8 @@ namespace QRZ
                 {
                     cacheQRZBad.TryAdd(callSign, "BAD");
                 }
-                else if (isOnline && !cacheQRZ.TryAdd(callSign, callValid))
+                // don't cache Techs so we can keep querying to see if they upgrade
+                else if (!callValid.License.Equals("T") && isOnline && !cacheQRZ.TryAdd(callSign, callValid))
                 {
                     Console.WriteLine("Error adding " + callSignSplit + "/" + callValid + " to QRZ cache???");
                 }
@@ -207,7 +212,6 @@ namespace QRZ
 
         public bool CallQRZ(string url, string call, out string email)
         {
-            email = "";
             //if (!isOnline) return false;
             ++stackcount;
             if (stackcount > 1)
@@ -341,20 +345,6 @@ namespace QRZ
             isOnline = (xmlSession.Length > 0);
             --stackcount;
             return true;
-        }
-        private void CacheLoad(string filename)
-        {
-            try
-            {
-                if (File.Exists(filename))
-                {
-                    //cacheQRZ = new JavaScriptSerializer().Deserialize<ConcurrentDictionary<string, string>>(File.ReadAllText(filename));
-                }
-            }
-            catch (Exception)
-            {
-                throw;
-            }
         }
 
         public void Dispose()

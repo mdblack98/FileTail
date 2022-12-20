@@ -23,7 +23,7 @@ namespace FileTail
         public static String filename = "";
         private string filenameLog;
 
-        public StreamWriter writerLog { get; private set; }
+        public StreamWriter WriterLog { get; private set; }
 
         StreamReader reader;
         long lastMaxOffset=0;
@@ -40,11 +40,13 @@ namespace FileTail
         private string soundStatus = Off;
 
         //FileSystemWatcher watcher;
-        public DateTime lastWriteTime { get; private set; }
-        QRZ.QRZ qrz;
-        int nlines = 0;
+        public DateTime LastWriteTime { get; private set; }
+
+        QRZ qrz;
+        //int nlines = 0;
         private string qrzlogin;
         private string qrzpassword;
+        private bool pause;
 
         public Form1()
         {
@@ -54,8 +56,8 @@ namespace FileTail
             qrzpassword = Properties.Settings.Default.QRZPassword;
             if (qrzlogin == null || qrzlogin.Length == 0)
                 GetQRZLogin();
-            qrz = new QRZ.QRZ(Properties.Settings.Default.QRZLogin, Properties.Settings.Default.QRZPassword, "cache.txt");
-
+            qrz = new QRZ(Properties.Settings.Default.QRZLogin, Properties.Settings.Default.QRZPassword, "cache.txt");
+            if (qrz == null) MessageBox.Show("QRZ login failed");
         }
 
         ~Form1()
@@ -129,10 +131,11 @@ namespace FileTail
                 // Process input if the user clicked OK.
                 if (userClickedOK.Equals(DialogResult.OK))
                 {
+                    if (filenameLog != "") WriterLog.Close();
                     // Open the selected file to read.
                     filenameLog = openFileDialog1.InitialDirectory + openFileDialog1.FileName;
 
-                    writerLog = new StreamWriter(new FileStream(filenameLog,
+                    WriterLog = new StreamWriter(new FileStream(filenameLog,
                                                    FileMode.Create, FileAccess.Write, FileShare.ReadWrite));
                     openFileDialog1.Dispose();
                     captureStatus = filenameLog;
@@ -145,11 +148,11 @@ namespace FileTail
                 {
                     filenameLog = "";
                     richTextBox1.AppendText("Log file canceled\n");
-                    if (writerLog != null)
+                    if (WriterLog != null)
                     {
-                        writerLog.Close();
-                        writerLog.Dispose();
-                        writerLog = null;
+                        WriterLog.Close();
+                        WriterLog.Dispose();
+                        WriterLog = null;
                         captureStatus = Off;
                     }
                 }
@@ -210,22 +213,24 @@ namespace FileTail
                                                FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
             }
             filenameLog = Properties.Settings.Default.FilenameLog;
+            if (filenameLog == null) return;
             if (filenameLog.Length != 0)
             {
-                writerLog = new StreamWriter(new FileStream(filenameLog, FileMode.Append, FileAccess.Write));
+                WriterLog = new StreamWriter(new FileStream(filenameLog, FileMode.Append, FileAccess.Write));
                 captureStatus = filenameLog;
             }
             Help();
             timer1.Interval = 1000;
             timer1.Start();
         }
-
+        /*
         void Speak(string text)
         {
             var speak = new SpeechLib.Synthesis.SpeechSynthesis();
             speak.Speak(text);
             speak.Dispose();
         }
+        */
 
         private void Timer1_Tick(object sender, EventArgs e)
         {
@@ -235,16 +240,17 @@ namespace FileTail
                 timer1.Stop();
                 if (lastMaxOffset == 0)
                 {
-                    reader.ReadToEnd();
+                    //reader.ReadToEnd();
+                    reader.BaseStream.Seek(0, SeekOrigin.End);    
                     lastMaxOffset = reader.BaseStream.Position;
                     timer1.Start();
                     return;
                 }
                 //richTextBox1.AppendText("Loop " + richTextBox1.Lines.Count() + "\n");
                 //if the file size has changed, update our window
-                if (File.GetLastWriteTime(filename) != lastWriteTime)
+                if (File.GetLastWriteTime(filename) != LastWriteTime)
                 {
-                    lastWriteTime = File.GetLastWriteTime(filename);
+                    LastWriteTime = File.GetLastWriteTime(filename);
                     if (reader.BaseStream.Length != lastMaxOffset)
                     {
                         //seek to the last max offset
@@ -253,7 +259,8 @@ namespace FileTail
                         //read out of the file until the EOF
                         while ((line = reader.ReadLine()) != null)
                         {
-                            nlines++;
+                            if (pause) continue;
+                            //nlines++;
                             try
                             {
                                 var allText = new AllText();
@@ -291,10 +298,10 @@ namespace FileTail
                                 bool matchedIgnore = regexIgnore.Length > 0 && Regex.IsMatch(line, regexIgnore);
                                 if (matched && !matchedIgnore)
                                 {
-                                    if (writerLog != null)
+                                    if (WriterLog != null)
                                     {
-                                        writerLog.WriteLine(line);
-                                        writerLog.Flush();
+                                        WriterLog.WriteLine(line);
+                                        WriterLog.Flush();
                                     }
                                     richTextBox1.AppendText(line + "\n");
                                     if (soundStatus.Equals(On))
@@ -307,10 +314,10 @@ namespace FileTail
                                 }
                                 else if (showAll)
                                 {
-                                    if (writerLog != null)
+                                    if (WriterLog != null)
                                     {
-                                        writerLog.WriteLine(line);
-                                        writerLog.Flush();
+                                        WriterLog.WriteLine(line);
+                                        WriterLog.Flush();
                                     }
                                     richTextBox1.AppendText(line + "\n");
                                 }
@@ -338,7 +345,7 @@ namespace FileTail
             string f5 = "On";
             if (!showAll) f5 = Off;
             richTextBox1.AppendText("By W9MDB in the public domain for ARRL Volunteer Monitoring use\n");
-            richTextBox1.AppendText("F1-Help,  F2-FileOpen, F3-Clear, F4=RegEx, F5-Showall is " + f5 + "\nF6-WavFile, F7-QRZ Login, F8-Capture File=" + captureStatus +"\n");
+            richTextBox1.AppendText("F1-Help,  F2-FileOpen, F3-Clear, F4=RegEx, F5-Showall is " + f5 + "\nF6-WavFile, F7-QRZ Login, F8-Capture File=" + captureStatus +", F9=Pause\n");
             richTextBox1.AppendText("F11-Sound="+soundStatus+", F12-Witnessed\n");
             richTextBox1.AppendText("Watching " + filename);
             if (regex.Length>0)
@@ -438,6 +445,7 @@ namespace FileTail
                     break;
                 case Keys.F7:
                     GetQRZLogin();
+                    qrz = new QRZ(Properties.Settings.Default.QRZLogin, Properties.Settings.Default.QRZPassword, "cache.txt");
                     break;
                 case Keys.F8:
                     if (!captureStatus.Equals(Off))
@@ -452,6 +460,11 @@ namespace FileTail
                     Help();
                     //Speak("W9MDB");
                     break;
+                case Keys.F9:
+                    pause = !pause;
+                    if (pause) richTextBox1.AppendText("Paused...F9 to resume...");
+                    else richTextBox1.AppendText("continuing\n");
+                    break;
                 case Keys.F11:
                     soundStatus = soundStatus.Equals(Off) ? On : Off;
                     Help();
@@ -460,9 +473,9 @@ namespace FileTail
                     richTextBox1.SelectionStart = richTextBox1.TextLength-1;
                     richTextBox1.SelectionLength = 1;
                     richTextBox1.SelectedText = " WITNESSED" + "\n";
-                    writerLog.BaseStream.Seek(-2, SeekOrigin.End);
-                    writerLog.WriteLine(" WITNESSED");
-                    writerLog.Flush();
+                    WriterLog.BaseStream.Seek(-2, SeekOrigin.End);
+                    WriterLog.WriteLine(" WITNESSED");
+                    WriterLog.Flush();
                     break;
             }
         }
@@ -584,7 +597,7 @@ namespace FileTail
             return (int)Math.Round((float)nNumber * nNumerator / nDenominator);
         }
 
-        private void timer2_Tick(object sender, EventArgs e)
+        private void Timer2_Tick(object sender, EventArgs e)
         {
         }
 
@@ -597,7 +610,7 @@ namespace FileTail
         {
             SendMessage(MyRichTextBox.Handle, WM_VSCROLL, (IntPtr)SB_PAGEBOTTOM, IntPtr.Zero);
         }
-        private void richTextBox1_TextChanged(object sender, EventArgs e)
+        private void RichTextBox1_TextChanged(object sender, EventArgs e)
         {
             int maxLines = 500;
             int trimToLines = 400;

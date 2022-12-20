@@ -69,7 +69,7 @@
             this.Controls.Add(this.richTextBox1);
             this.KeyPreview = true;
             this.Name = "Form1";
-            this.Text = "FileTail V1.8.7 by W9MDB";
+            this.Text = "FileTail V1.8.8 by W9MDB";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
             this.Load += new System.EventHandler(this.Form1_Load);
             this.TextChanged += new System.EventHandler(this.Form1_TextChanged);
